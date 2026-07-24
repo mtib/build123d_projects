@@ -311,6 +311,15 @@ is unavoidable, minimise it. Bias toward printability even at some cost to form:
   is fine. For openings, prefer **arches/teardrops/chamfers** over flat
   horizontal bridges (a round side-hole self-supports its top half).
 - **No islands / no floating overhangs** that would need support material.
+- **Split large / awkward models into assembled parts.** When a single body would
+  need support, be hard to orient, or exceed the bed, consider decomposing it into
+  smaller parts that each print easily on their own (each with a flat base and
+  self-supporting overhangs), then joined afterwards. Design the mating interface
+  deliberately — **glue/weld** (flat or keyed contact faces), **press-fit** (size
+  the pin/socket for an interference fit, ~0.1–0.2 mm), or **common hardware**
+  (screw bosses, heat-set-insert holes, captive-nut pockets, standard M-screws).
+  Weigh the assembly step against the print savings; note the trade-off in the
+  project.
 - **Walls ≥ ~2 mm**, small holes (≤ ~8 mm) bridge fine, orient the model in its
   intended print pose (the STL bakes orientation in).
 - When a requested feature can't be printed cleanly without support, adapt it to
