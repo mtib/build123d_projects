@@ -32,9 +32,9 @@ PLATE_T = 4.0     # plate thickness
 HOOK_T = 7.0      # hook bar thickness (Y); passes a ~10 mm brush hole
 SHANK_W = 7.0     # shank width along X, dropped at the back edge (X 0..SHANK_W)
 
-PEG_DROP = 28.0   # peg underside below the glue face
+PEG_DROP = 33.0   # peg underside below the glue face (taller -> bigger opening)
 PEG_H = 6.0       # peg height (vertical thickness of the bar)
-PEG_FRONT = 34.0  # how far forward the peg reaches (stays < PLATE_L, under plate)
+PEG_FRONT = 38.0  # how far forward the peg reaches (stays < PLATE_L, under plate)
 TIP_W = 6.0       # upturned-tip width (along X)
 TIP_RISE = 7.0    # how far the tip rises above the peg top (retention)
 
