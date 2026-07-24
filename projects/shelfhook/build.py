@@ -1,90 +1,100 @@
-"""Clip-on shelf hook rail (PÅLYCKE-style) with two in-line brush hooks.
+"""Clip-on shelf hook rail (PÅLYCKE-style), modelled as a bent flat strap.
 
-A C-clip grips the front edge of a shelf (no adhesive/drilling); two brush
-pockets hang below it, one behind the other (in-line, front-to-back), each
-holding a brush by its ~10 mm hanging hole (same brushes as the `brushhook`
-project). A hanging load pulls forward of the shelf edge, which cams the clip
-tighter onto the shelf.
+A thin strap of constant width and thickness is bent into: a long top arm that
+lies on the shelf top (with a gently upturned tip), a rounded bend that wraps the
+shelf's front edge, a bottom arm under the shelf, and two J-hooks hanging down
+in-line (front-to-back) to hold brushes by their ~10 mm holes. A hanging load
+pulls down forward of the front edge, camming the strap tighter onto the shelf.
 
     OPENING = shelf thickness the clip grips. TODO: set SHELF_T to your measured
-    shelf thickness (PÅLYCKE fits 16-20 mm; default is a 18 mm placeholder).
+    shelf thickness (PÅLYCKE fits 16-20 mm; default is an 18 mm placeholder).
 
-Coordinates (in-use pose): shelf front edge at X = 0, shelf body in +X, shelf
-top at Z = 0; the clip and the two forward pockets hang in -X / -Z.
+The whole shape is one planar profile (the strap centerline traced to its
+material thickness) extruded across the strap width. Coordinates: shelf front
+edge at X = 0, shelf body in +X, shelf top at Z = 0, width along Y.
 
-Print orientation (support-free): lay it on its side (flat profile face, the
-Y = 0 face, on the bed) so the width becomes the build height. The whole profile
-sits on the bed and nothing overhangs -> no supports. The clip is widened in Y
-for lateral stability while the pegs stay thin enough to pass a brush hole; both
-are flush to the Y = 0 face so nothing starts mid-air.
+Print orientation (support-free): lay it on its side (a strap face on the bed)
+so the width becomes the build height — the profile then prints as a flat plate
+with no overhangs, no supports. Note: printed PLA isn't springy like the steel
+original, so the fit is a light slide-on friction fit and the hanging load does
+the gripping (cam action); tune SHELF_T / FIT_CLEARANCE to your shelf.
 """
 
 from __future__ import annotations
 
-from build123d import Align, Axis, Box, Part, Pos, Shape, fillet
+from build123d import (
+    Axis,
+    BuildLine,
+    BuildPart,
+    BuildSketch,
+    Line,
+    Plane,
+    Shape,
+    extrude,
+    trace,
+)
 
-# --- clip parameters (mm) ---------------------------------------------------
+# --- strap / clip parameters (mm) -------------------------------------------
+MAT = 4.0          # strap material thickness (in-profile)
+STRAP_W = 16.0     # clip strap width (Y) -> becomes the print build height
+HOOK_W = 7.0       # hook width (Y): narrow enough to pass a ~10 mm brush hole
 SHELF_T = 18.0     # OPENING: shelf thickness the clip grips (TODO: set exactly)
-CLIP_GRIP = 0.4    # interference: modelled gap = SHELF_T - CLIP_GRIP (light pinch)
-ARM_T = 5.0        # clip arm thickness
-ARM_LEN = 35.0     # how far the clip arms reach onto the shelf
-WEB_T = 6.0        # front web thickness
-CLIP_W = 30.0      # clip width (Y) for lateral stability on the shelf edge
+FIT_CLEARANCE = 0.2  # added to the arm gap for an easy slide-on fit
+
+ARM_LEN = 45.0     # top arm reach onto the shelf
+BOT_LEN = 34.0     # bottom arm reach under the shelf
+FRONT_X = -4.0     # front face position (a small lip in front of the shelf edge)
+TIP_DX = 8.0       # upturned-tip run
+TIP_UP = 6.0       # upturned-tip rise
 
 # --- hook parameters (mm) ---------------------------------------------------
-PEG_W = 7.0        # peg/upright thickness (Y); passes a ~10 mm brush hole
-PEG_H = 6.0        # peg height (Z)
-PEG_TOP = -32.0    # peg top Z (how far below the shelf top the brushes hang)
-POCKET = 18.0      # X length of each brush pocket
-UPR_W = 5.0        # divider/tip upright width (X)
-UPR_RISE = 7.0     # how far the uprights rise above the peg top (retention)
-
-FILLET_R = 1.2     # edge rounding
-
-_MIN = (Align.MIN, Align.MIN, Align.MIN)
+HOOKS_X = (18.0, 38.0)  # shank (back) X of each in-line hook along the bottom arm
+HOOK_DROP = 20.0   # straight drop from the bottom arm
+HOOK_REACH = 14.0  # flat peg length (forward, -X)
+HOOK_TIP = 8.0     # upturned tip after the flat bottom (retention)
 
 
-def _box(x0, x1, y0, y1, z0, z1) -> Part:
-    """Axis-aligned box from (x0,y0,z0) to (x1,y1,z1)."""
-    return Pos(x0, y0, z0) * Box(x1 - x0, y1 - y0, z1 - z0, align=_MIN)
+def _main_strap_line() -> None:
+    """Centerline of the clip strap: upturned tip, top arm, square front, bottom arm."""
+    z_top = MAT / 2
+    z_bot = -(SHELF_T + FIT_CLEARANCE) - MAT / 2
+    Line((ARM_LEN, z_top), (ARM_LEN + TIP_DX, z_top + TIP_UP))  # upturned tip
+    Line((FRONT_X, z_top), (ARM_LEN, z_top))                    # top arm
+    Line((FRONT_X, z_top), (FRONT_X, z_bot))                    # square front face
+    Line((FRONT_X, z_bot), (BOT_LEN, z_bot))                    # bottom arm
 
 
-def make_rail() -> Part:
-    """Build the clip-on shelf rail with two in-line brush pockets."""
-    gap = SHELF_T - CLIP_GRIP
-    z_bot_top = -gap              # top of the bottom arm (under the shelf)
-    z_bot_bot = -gap - ARM_T
-    peg_bot = PEG_TOP - PEG_H
-    upr_top = PEG_TOP + UPR_RISE
-
-    # X positions marching forward (-X) from the web front.
-    x_web = -WEB_T
-    x_p1 = x_web - POCKET          # back pocket front / mid-upright back
-    x_mid = x_p1 - UPR_W           # mid-upright front
-    x_p2 = x_mid - POCKET          # front pocket front / front-upright back
-    x_front = x_p2 - UPR_W         # front-upright front == peg front
-
-    # Clip (widened in Y for stability): top arm on the shelf, bottom arm under
-    # it, web joining them at the front and dropping down to the peg.
-    top_arm = _box(x_web, ARM_LEN, 0, CLIP_W, 0, ARM_T)
-    bottom_arm = _box(x_web, ARM_LEN, 0, CLIP_W, z_bot_bot, z_bot_top)
-    web_spine = _box(x_web, 0, 0, CLIP_W, peg_bot, ARM_T)
-
-    # Peg and uprights (thin in Y so a brush hole fits over them). The web front
-    # face is the back wall of pocket 1; the mid upright divides the pockets;
-    # the front upright is the retaining tip.
-    peg = _box(x_front, 0, 0, PEG_W, peg_bot, PEG_TOP)
-    mid_upright = _box(x_mid, x_p1, 0, PEG_W, peg_bot, upr_top)
-    front_upright = _box(x_front, x_p2, 0, PEG_W, peg_bot, upr_top)
-
-    part = top_arm + bottom_arm + web_spine + peg + mid_upright + front_upright
-    part = fillet(part.edges().filter_by(Axis.Y), radius=FILLET_R)
-    return part
+def _hooks_line() -> None:
+    """Centerlines of the two in-line hooks: flat-bottomed pegs with upturned tips."""
+    z_bot = -(SHELF_T + FIT_CLEARANCE) - MAT / 2
+    zc = z_bot - HOOK_DROP
+    for xh in HOOKS_X:
+        Line((xh, z_bot), (xh, zc))                       # drop (shank)
+        Line((xh, zc), (xh - HOOK_REACH, zc))             # flat bottom (peg)
+        Line((xh - HOOK_REACH, zc), (xh - HOOK_REACH, zc + HOOK_TIP))  # tip up
 
 
-# Inspection slices for `--views`: the side profile (0deg) and the widths (90deg);
-# slice through the clip arms (z=-2) and through the pegs/uprights (z=-35).
-VIEWS = {"angles": [0, 90], "z_slices": [-2, -35]}
+def make_rail() -> Shape:
+    """Build the bent-strap shelf clip: wide clip + two narrow flat-bottom hooks."""
+    with BuildPart() as part:
+        # Wide clip strap.
+        with BuildSketch(Plane.XZ):
+            with BuildLine():
+                _main_strap_line()
+            trace(line_width=MAT)
+        extrude(amount=STRAP_W, dir=(0, 1, 0))
+        # Narrow hooks (thin enough to pass a brush hole), flush to the Y=0 face.
+        with BuildSketch(Plane.XZ):
+            with BuildLine():
+                _hooks_line()
+            trace(line_width=MAT)
+        extrude(amount=HOOK_W, dir=(0, 1, 0))
+    return part.part
+
+
+# Inspection slices for `--views`: the strap profile (0deg) and a width section
+# (90deg); a slice through the arms and one through the hooks.
+VIEWS = {"angles": [0, 90], "z_slices": [0, -30]}
 
 # Hero collage for `--hero`: a 3/4 showcase next to a straight-on side profile.
 HERO = {"views": [{"elev": 18, "azim": -62}, {"elev": 0, "azim": -90}]}
