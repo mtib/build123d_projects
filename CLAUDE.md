@@ -253,6 +253,26 @@ print('is_valid', b.is_valid())     # sanity-check the B-rep
 GUI viewer here; verify via `.volume`, `.bounding_box()`, `.is_valid()`, and by
 opening the exported STL in a slicer.
 
+### Design principle: prefer easy-to-print models
+
+**Default to designs that print with no support on a bog-standard FDM printer.**
+This is a standing preference for every model in this repo — bias toward
+printability even at some cost to form:
+
+- **Flat base on the bed.** Give the model a flat bottom so it adheres well and
+  needs no raft/support. Avoid raised feet that enclose a flat ceiling
+  underneath — that ceiling becomes a long unsupported bridge. Fake feet with
+  arched/notched cutouts in a flush base instead.
+- **Self-supporting overhangs (≤ ~45° from vertical).** Mild outward wall taper
+  is fine. For openings, prefer **arches/teardrops/chamfers** over flat
+  horizontal bridges (a round side-hole self-supports its top half).
+- **No islands / no floating overhangs** that would need support material.
+- **Walls ≥ ~2 mm**, small holes (≤ ~8 mm) bridge fine, orient the model in its
+  intended print pose (the STL bakes orientation in).
+- When a requested feature can't be printed cleanly without support, adapt it to
+  a support-free equivalent and note the trade-off — don't silently emit an
+  unprintable model.
+
 ### 3D-printing gotchas
 
 - **Manifold & watertight:** exported solids must be closed. Prefer building one
