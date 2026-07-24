@@ -54,6 +54,11 @@ RIM_FILLET = 1.2 # top-rim rounding
 # bosses/vents (z=8).
 VIEWS = {"angles": [0, 30, 45], "z_slices": [2, 8]}
 
+# Hero render for `build_all --hero`: a collage glued side by side — a 3/4
+# showcase (taper, cavity, side vent) next to a top-down view that shows the
+# floor drain holes and the support bosses.
+HERO = {"views": [{"elev": 22, "azim": -55}, {"elev": 90, "azim": -90}]}
+
 # Standard EU tapered nursery ("grow") pots: top Ø, base Ø, height (mm).
 NURSERY_POTS = {
     "9cm": (90.0, 64.0, 82.0),

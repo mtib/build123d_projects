@@ -73,7 +73,9 @@ def build() -> dict[str, Shape]:
   project folder — so don't repeat the project name in the key.
 - The **values** are build123d shapes (`Part`, `Solid`, `Compound`, `Sketch`…).
 - Optional: declare `VIEWS = {"angles": [...], "z_slices": [...]}` to steer the
-  `--views` inspection renders through your model's notable features.
+  `--views` inspection renders through your model's notable features, and
+  `HERO = {"elev": .., "azim": ..}` (or `{"views": [...]}` for a collage) to set
+  the `--hero` showcase viewpoint.
 - Keep `build.py` importable with **no side effects at import time** — all work
   happens inside `build()`. The entrypoint loads the module and calls `build()`;
   it does not run any `__main__` block.
@@ -90,7 +92,8 @@ detail.
 python build_all.py            # build EVERY project → projects/*/exports/*.stl
 python build_all.py flowerpot  # build ONE project (the usual dev loop)
 python build_all.py a b c      # build several
-python build_all.py --views    # + render inspection PNGs next to the STLs
+python build_all.py --hero     # + render a hero PNG per model (shipped in release)
+python build_all.py --views    # + render inspection slice PNGs (local only)
 python build_all.py --dist dist  # + collect release assets into dist/
 python build_all.py --list     # list discoverable projects
 ```
@@ -100,11 +103,23 @@ exits non-zero if any project failed (good for CI).
 
 **Naming / release assets.** Local STLs are `projects/<name>/exports/<key>.stl`.
 The `<project>_<key>.stl` release name is applied only by `--dist`, which copies
-each STL into the dist dir with a **path-derived** project prefix and **fails
-loudly on any name collision** (never a silent overwrite). On every push to
-`main`, CI runs `python build_all.py --dist dist` and publishes a GitHub release
-of `dist/*.stl`. Do the prefixing at this collection boundary — don't rely on
-the build step or the filename for uniqueness.
+each STL (and its hero PNG) into the dist dir with a **path-derived** project
+prefix and **fails loudly on any name collision** (never a silent overwrite). On
+every push to `main`, CI runs `python build_all.py --hero --dist dist` and
+publishes a GitHub release of `dist/*.stl` + `dist/*.png`. Do the prefixing at
+this collection boundary — don't rely on the build step or the filename for
+uniqueness.
+
+**Hero renders.** Every model should ship a "hero" render — a shaded 3/4 view of
+the whole model on a **transparent background** — as a release asset named
+exactly like its STL but `.png` (`<project>_<key>.png`). `--hero` writes `<key>.png` next to each `<key>.stl`;
+`--dist` collects it into the release. Give each model a sensible **per-model
+viewpoint** with `HERO = {"elev": .., "azim": ..}` in its build.py (also
+`tolerance`, `base_color`). For a **collage** — multiple panels glued side by
+side — set `HERO = {"views": [{"elev": .., "azim": ..}, ...]}`; e.g. the flower
+pot pairs a 3/4 showcase with a top-down view of the drain holes and bosses.
+There is no GPU renderer here, so heroes are the tessellated mesh drawn with
+matplotlib 3D — pick viewpoints that show the model off and read clearly.
 
 **Inspection renders.** `--views` writes `<key>_*.png` (sections + top
 projection) next to the STLs for local verification. They live under the

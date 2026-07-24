@@ -5,7 +5,8 @@ Usage
 -----
     python build_all.py                    # build every project under projects/
     python build_all.py flowerpot          # build only the named project(s)
-    python build_all.py --views            # + write inspection renders locally
+    python build_all.py --hero             # + render a hero PNG per model
+    python build_all.py --views            # + write inspection slice renders
     python build_all.py --dist dist        # + collect release assets into dist/
     python build_all.py --list             # list discoverable projects
 
@@ -19,10 +20,15 @@ directory (``--dist``), which is what CI uploads to a release. Doing the prefix
 at the collection boundary keeps it path-derived and lets us fail loudly on any
 name collision instead of silently overwriting.
 
+Hero renders (``--hero``): renders one showcase PNG per model named exactly like
+its STL (``<key>.png`` beside ``<key>.stl``). Unlike the slice views, hero PNGs
+ARE collected by ``--dist`` and uploaded to the release (``<project>_<key>.png``).
+A project sets its own viewpoint via ``HERO = {"elev": .., "azim": ..}``.
+
 Inspection views (``--views``): renders cross-sections + a top projection next
 to the STLs (``projects/<name>/exports/<key>_*.png``) so you can eyeball each
 model and spot regressions. Requires matplotlib (requirements-dev.txt). These
-PNGs live under the gitignored ``exports/`` and are never collected into a
+slice PNGs live under the gitignored ``exports/`` and are never collected into a
 release — they are a local verification aid only.
 
 This is the entrypoint CI runs to regenerate every model:
@@ -94,7 +100,21 @@ def _render_views(module, parts: dict, out_dir: Path) -> list[Path]:
     return written
 
 
-def build_project(name: str, *, render_views: bool = False) -> tuple[list[Path], list[Path]]:
+def _render_heroes(module, parts: dict, out_dir: Path) -> list[Path]:
+    """Render a hero PNG per part as ``<key>.png`` (sibling of ``<key>.stl``).
+
+    A project may declare ``HERO = {"elev": .., "azim": .., "tolerance": ..}`` in
+    its build.py to set a per-model viewpoint; otherwise the defaults are used.
+    """
+    from viz import render_hero  # lazy import: matplotlib is a dev-only dep
+
+    spec = getattr(module, "HERO", None) or {}
+    return [render_hero(part, out_dir / f"{key}.png", **spec) for key, part in parts.items()]
+
+
+def build_project(
+    name: str, *, render_views: bool = False, render_hero: bool = False
+) -> tuple[list[Path], list[Path]]:
     """Build a single project; return (stl_paths, png_paths)."""
     module = _load_build(name)
     if not hasattr(module, "build"):
@@ -106,7 +126,11 @@ def build_project(name: str, *, render_views: bool = False) -> tuple[list[Path],
         for old in out_dir.glob("*.stl"):
             old.unlink()
     stls = export_parts(parts, out_dir)
-    pngs = _render_views(module, parts, out_dir) if render_views else []
+    pngs: list[Path] = []
+    if render_hero:
+        pngs += _render_heroes(module, parts, out_dir)
+    if render_views:
+        pngs += _render_views(module, parts, out_dir)
     return stls, pngs
 
 
@@ -126,16 +150,23 @@ def collect_dist(projects: list[str], dist_dir: Path | str) -> list[Path]:
         if not exports.is_dir():
             continue
         for stl in sorted(exports.glob("*.stl")):
-            asset = f"{name}_{stl.name}"
-            if asset in seen:
-                raise SystemExit(
-                    f"release asset name collision: '{asset}' produced by both "
-                    f"{seen[asset]} and {stl}"
-                )
-            seen[asset] = stl
-            target = dist / asset
-            shutil.copy2(stl, target)
-            written.append(target)
+            # Ship the STL and, if present, its hero render (<key>.png). The
+            # slice views (<key>_*.png) are deliberately not collected.
+            sources = [stl]
+            hero = stl.with_suffix(".png")
+            if hero.exists():
+                sources.append(hero)
+            for src in sources:
+                asset = f"{name}_{src.name}"
+                if asset in seen:
+                    raise SystemExit(
+                        f"release asset name collision: '{asset}' produced by both "
+                        f"{seen[asset]} and {src}"
+                    )
+                seen[asset] = src
+                target = dist / asset
+                shutil.copy2(src, target)
+                written.append(target)
     return written
 
 
@@ -146,7 +177,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--views",
         action="store_true",
-        help="render inspection PNGs next to the STLs (needs matplotlib)",
+        help="render inspection slice PNGs next to the STLs (needs matplotlib)",
+    )
+    parser.add_argument(
+        "--hero",
+        action="store_true",
+        help="render a hero PNG (<key>.png) per model; collected into the release",
     )
     parser.add_argument(
         "--dist",
@@ -178,14 +214,16 @@ def main(argv: list[str] | None = None) -> int:
     for name in targets:
         start = time.perf_counter()
         try:
-            stls, pngs = build_project(name, render_views=args.views)
+            stls, pngs = build_project(
+                name, render_views=args.views, render_hero=args.hero
+            )
         except Exception as exc:  # keep building other projects
             print(f"[FAIL] {name}: {exc}", file=sys.stderr)
             exit_code = 1
             continue
         built_ok.append(name)
         elapsed = time.perf_counter() - start
-        extra = f", {len(pngs)} view(s)" if args.views else ""
+        extra = f", {len(pngs)} render(s)" if pngs else ""
         print(f"[ok]   {name}: {len(stls)} STL(s){extra} in {elapsed:.1f}s")
         for f in stls:
             print(f"         -> {f.relative_to(REPO_ROOT)}")

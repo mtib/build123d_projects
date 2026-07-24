@@ -24,16 +24,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libgl1 libx11-6
 
       - name: Install Python deps
+        # requirements-dev.txt adds matplotlib, needed to render the hero PNGs.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Build all projects and collect release assets
-        # --dist collects into dist/ as <project>_<file>.stl (path-derived
-        # prefix, hard error on any name collision). No --views: renders are a
-        # local-only aid and are never uploaded.
+        # --hero renders a showcase PNG per model; --dist collects STLs + hero
+        # PNGs into dist/ as <project>_<file> (path-derived prefix, hard error on
+        # any name collision). --views (local-only slice renders) is not passed.
         run: |
-          python build_all.py --dist dist
+          python build_all.py --hero --dist dist
           ls -l dist
 
       - name: Publish release
@@ -42,5 +43,7 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: STL build ${{ github.run_number }}
           body: >-
-            Auto-generated STL files from commit ${{ github.sha }}.
-          files: dist/*.stl
+            Auto-generated STL files (+ hero renders) from commit ${{ github.sha }}.
+          files: |
+            dist/*.stl
+            dist/*.png

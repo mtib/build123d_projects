@@ -38,8 +38,10 @@ variant names, exported locally to `projects/<name>/exports/<key>.stl`. The
 globally-unique release name `<project>_<key>.stl` is applied only when collecting
 with `--dist` (path-derived prefix, hard error on any collision).
 
-Run `build_all.py --views` to also render cross-section/plan PNGs next to each STL
-(local verification aid; requires `requirements-dev.txt`, never uploaded to a release).
+Run `build_all.py --hero` to render a showcase PNG per model (transparent background,
+named like its STL) — these are shipped in the release. `--views` renders
+cross-section/plan PNGs next to each STL for local verification (never uploaded).
+Both require `requirements-dev.txt`.
 
 ## Projects
 
@@ -51,9 +53,10 @@ Run `build_all.py --views` to also render cross-section/plan PNGs next to each S
 ## Continuous integration
 
 On every push to `main`, [`.github/workflows/build.yml`](.github/workflows/build.yml)
-runs `build_all.py --dist dist` and publishes a GitHub release containing every
-`<project>_<name>.stl`. The project prefix is derived from the folder at collection
-time and collisions are a hard error, so assets can't silently clash.
+runs `build_all.py --hero --dist dist` and publishes a GitHub release containing
+every `<project>_<name>.stl` plus its hero render `<project>_<name>.png`. The
+project prefix is derived from the folder at collection time and collisions are a
+hard error, so assets can't silently clash.
 
 ## Conventions
 

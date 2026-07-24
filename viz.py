@@ -20,9 +20,80 @@ import matplotlib
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt  # noqa: E402
 
+import numpy as np  # noqa: E402
+
 from build123d import Axis, Plane, Shape, Vector  # noqa: E402
 
 _SAMPLES = 40  # points sampled per edge when drawing
+
+
+def render_hero(
+    part: Shape,
+    out_png: str | Path,
+    *,
+    views: list[dict] | None = None,
+    elev: float = 22.0,
+    azim: float = -55.0,
+    tolerance: float = 0.2,
+    base_color: tuple[float, float, float] = (0.62, 0.68, 0.80),
+) -> Path:
+    """Render a shaded "hero" view of the whole model to a PNG (transparent bg).
+
+    No GPU/VTK renderer is available here, so this tessellates the solid and
+    draws the triangles with matplotlib 3D, flat-shaded against a fixed light.
+
+    Pass ``views`` as a list of viewpoint dicts (each ``{"elev": .., "azim": ..}``,
+    optionally overriding ``base_color``) to produce a **collage** of panels
+    glued side by side — e.g. a 3/4 showcase next to a top-down view. With no
+    ``views``, a single ``elev``/``azim`` panel is rendered.
+    """
+    from mpl_toolkits.mplot3d.art3d import Poly3DCollection  # noqa: E402
+
+    out_png = Path(out_png)
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+
+    verts, tris = part.tessellate(tolerance)
+    pts = np.array([(v.X, v.Y, v.Z) for v in verts])
+    tri = pts[np.array(tris)]  # (n, 3, 3)
+
+    # Flat shading: per-face normal · fixed world light -> intensity. Because the
+    # light is fixed in world space, the shading is the same for every panel.
+    normals = np.cross(tri[:, 1] - tri[:, 0], tri[:, 2] - tri[:, 0])
+    lengths = np.linalg.norm(normals, axis=1, keepdims=True)
+    normals = normals / np.where(lengths == 0, 1, lengths)
+    light = np.array([0.4, -0.5, 0.75])
+    light = light / np.linalg.norm(light)
+    ambient = 0.4
+    shade = ambient + (1 - ambient) * np.clip(np.abs(normals @ light), 0, 1)
+
+    def facecolors_for(color):
+        rgb = np.clip(np.array(color)[None, :] * shade[:, None], 0, 1)
+        return np.hstack([rgb, np.ones((len(rgb), 1))])
+
+    lo, hi = pts.min(axis=0), pts.max(axis=0)
+    center = (lo + hi) / 2
+    span = (hi - lo).max() / 2 * 1.05
+
+    panels = views or [{"elev": elev, "azim": azim}]
+    fig = plt.figure(figsize=(5 * len(panels), 5))
+    for i, vp in enumerate(panels):
+        ax = fig.add_subplot(1, len(panels), i + 1, projection="3d")
+        coll = Poly3DCollection(
+            tri, facecolors=facecolors_for(vp.get("base_color", base_color)),
+            edgecolors="none",
+        )
+        coll.set_zsort("average")
+        ax.add_collection3d(coll)
+        ax.set_xlim(center[0] - span, center[0] + span)
+        ax.set_ylim(center[1] - span, center[1] + span)
+        ax.set_zlim(center[2] - span, center[2] + span)
+        ax.set_box_aspect((1, 1, 1))
+        ax.view_init(elev=vp.get("elev", elev), azim=vp.get("azim", azim))
+        ax.set_axis_off()
+
+    fig.savefig(out_png, dpi=140, bbox_inches="tight", pad_inches=0, transparent=True)
+    plt.close(fig)
+    return out_png
 
 
 def _edge_points(edge):
