@@ -14,6 +14,8 @@ pip install -r requirements-dev.txt    # + matplotlib, for slice rendering
 
 python build_all.py                    # build every project → projects/*/exports/*.stl
 python build_all.py flowerpot          # build a single project
+python build_all.py --views            # + render inspection PNGs next to the STLs
+python build_all.py --dist dist        # + collect release assets into dist/
 python build_all.py --list             # list projects
 ```
 
@@ -32,7 +34,12 @@ projects/<name>/
 ```
 
 Each project's `build.py` exposes `build() -> dict[str, Shape]`; the dict keys are
-variant names and each shape is exported to `projects/<name>/exports/<project>_<key>.stl`.
+variant names, exported locally to `projects/<name>/exports/<key>.stl`. The
+globally-unique release name `<project>_<key>.stl` is applied only when collecting
+with `--dist` (path-derived prefix, hard error on any collision).
+
+Run `build_all.py --views` to also render cross-section/plan PNGs next to each STL
+(local verification aid; requires `requirements-dev.txt`, never uploaded to a release).
 
 ## Projects
 
@@ -44,8 +51,9 @@ variant names and each shape is exported to `projects/<name>/exports/<project>_<
 ## Continuous integration
 
 On every push to `main`, [`.github/workflows/build.yml`](.github/workflows/build.yml)
-builds all projects and publishes a GitHub release containing every
-`<project>_<name>.stl`.
+runs `build_all.py --dist dist` and publishes a GitHub release containing every
+`<project>_<name>.stl`. The project prefix is derived from the folder at collection
+time and collisions are a hard error, so assets can't silently clash.
 
 ## Conventions
 

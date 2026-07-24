@@ -27,20 +27,21 @@ def export_parts(
     parts: Mapping[str, Shape],
     out_dir: Path | str,
     *,
-    prefix: str = "",
     tolerance: float = STL_TOLERANCE,
     angular_tolerance: float = STL_ANGULAR_TOLERANCE,
 ) -> list[Path]:
-    """Export each shape in ``parts`` to ``out_dir/<prefix><stem>.stl``.
+    """Export each shape in ``parts`` to ``out_dir/<stem>.stl``.
 
-    ``build_all`` passes ``prefix="<project>_"`` so files are self-describing
-    (``<project>_<name>.stl``). Returns the list of written file paths.
+    Files are named by the raw variant key (``9cm.stl``). The ``<project>_``
+    prefix that makes release assets globally unique is added later, at the
+    release-collection boundary (see ``build_all.collect_dist``). Returns the
+    list of written file paths.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     for stem, shape in parts.items():
-        path = out_dir / f"{prefix}{stem}.stl"
+        path = out_dir / f"{stem}.stl"
         export_stl(
             shape,
             str(path),

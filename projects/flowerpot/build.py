@@ -49,6 +49,11 @@ BOSS_R = 4.0     # radius of the nursery-pot support bosses
 BOSS_N = 3       # number of support bosses (interleaved between drain holes)
 RIM_FILLET = 1.2 # top-rim rounding
 
+# Inspection views for `build_all --views`: cut through a drain hole (0°), a
+# boss (30°) and a side vent (45°); slice through the floor (z=2) and the
+# bosses/vents (z=8).
+VIEWS = {"angles": [0, 30, 45], "z_slices": [2, 8]}
+
 # Standard EU tapered nursery ("grow") pots: top Ø, base Ø, height (mm).
 NURSERY_POTS = {
     "9cm": (90.0, 64.0, 82.0),

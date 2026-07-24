@@ -28,14 +28,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Build all projects
-        run: python build_all.py
-
-      - name: Collect STLs
+      - name: Build all projects and collect release assets
+        # --dist collects into dist/ as <project>_<file>.stl (path-derived
+        # prefix, hard error on any name collision). No --views: renders are a
+        # local-only aid and are never uploaded.
         run: |
-          mkdir -p dist
-          # Files are already named <project>_<name>.stl inside each exports/.
-          find projects -path '*/exports/*.stl' -exec cp {} dist/ \;
+          python build_all.py --dist dist
           ls -l dist
 
       - name: Publish release

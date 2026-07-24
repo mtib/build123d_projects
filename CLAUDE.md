@@ -67,10 +67,13 @@ def build() -> dict[str, Shape]:
     """Return {output_file_stem: build123d shape}."""
 ```
 
-- The **keys** are variant names; the exported file is `<project>_<key>.stl`
-  (e.g. project `flowerpot`, key `9cm` → `flowerpot_9cm.stl`). Don't repeat the
-  project name in the key — `build_all` adds the `<project>_` prefix.
+- The **keys** are variant names. The exported STL is `<key>.stl` **locally**
+  (e.g. `9cm.stl`). The globally-unique **release** name `<project>_<key>.stl`
+  is added only when collecting into a dist dir (`--dist`), path-derived from the
+  project folder — so don't repeat the project name in the key.
 - The **values** are build123d shapes (`Part`, `Solid`, `Compound`, `Sketch`…).
+- Optional: declare `VIEWS = {"angles": [...], "z_slices": [...]}` to steer the
+  `--views` inspection renders through your model's notable features.
 - Keep `build.py` importable with **no side effects at import time** — all work
   happens inside `build()`. The entrypoint loads the module and calls `build()`;
   it does not run any `__main__` block.
@@ -87,15 +90,26 @@ detail.
 python build_all.py            # build EVERY project → projects/*/exports/*.stl
 python build_all.py flowerpot  # build ONE project (the usual dev loop)
 python build_all.py a b c      # build several
+python build_all.py --views    # + render inspection PNGs next to the STLs
+python build_all.py --dist dist  # + collect release assets into dist/
 python build_all.py --list     # list discoverable projects
 ```
 
 A failure in one project is reported but does not stop the others; the process
 exits non-zero if any project failed (good for CI).
 
-Outputs are named `<project>_<name>.stl`. On every push to `main`, the CI
-workflow (`.github/workflows/build.yml`) runs `build_all.py` and publishes a
-GitHub release containing every generated STL.
+**Naming / release assets.** Local STLs are `projects/<name>/exports/<key>.stl`.
+The `<project>_<key>.stl` release name is applied only by `--dist`, which copies
+each STL into the dist dir with a **path-derived** project prefix and **fails
+loudly on any name collision** (never a silent overwrite). On every push to
+`main`, CI runs `python build_all.py --dist dist` and publishes a GitHub release
+of `dist/*.stl`. Do the prefixing at this collection boundary — don't rely on
+the build step or the filename for uniqueness.
+
+**Inspection renders.** `--views` writes `<key>_*.png` (sections + top
+projection) next to the STLs for local verification. They live under the
+gitignored `exports/` and are **never** collected into a release. CI does not
+pass `--views`.
 
 ### Adding a new project
 
@@ -272,7 +286,16 @@ intent** — the flower pot shipped with bosses overlapping the drain holes and
 side vents cutting into the floor, both invisible in the numbers but obvious in
 a slice.
 
-`viz.py` renders section/slice PNGs you can open and inspect:
+The easy path is `build_all --views`, which renders `<key>_*.png` (sections +
+top projection) next to each STL. Steer the cuts through a model's notable
+features by declaring `VIEWS` in its build.py:
+
+```python
+# projects/<name>/build.py
+VIEWS = {"angles": [0, 30, 45], "z_slices": [2, 8]}
+```
+
+For ad-hoc inspection of a single part, call the helper directly:
 
 ```python
 from viz import render_slices
@@ -282,7 +305,7 @@ render_slices(part, "/tmp/check/pot",
 # writes *_sec<angle>.png, *_z<height>.png, and *_top.png (plan projection)
 ```
 
-Requires `requirements-dev.txt` (matplotlib). Pick section angles/heights that
+Both need `requirements-dev.txt` (matplotlib). Pick section angles/heights that
 cut **through** the features you care about (holes, bosses, vents), and use the
 `*_top.png` plan projection to spot plan-view collisions.
 
