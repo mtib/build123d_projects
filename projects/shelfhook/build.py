@@ -42,7 +42,6 @@ SHELF_T = 18.0     # OPENING: shelf thickness the clip grips (TODO: set exactly)
 FIT_CLEARANCE = 0.2  # added to the arm gap for an easy slide-on fit
 
 ARM_LEN = 45.0     # top arm reach onto the shelf
-BOT_LEN = 34.0     # bottom arm reach under the shelf
 FRONT_X = -4.0     # front face position (a small lip in front of the shelf edge)
 TIP_DX = 8.0       # upturned-tip run
 TIP_UP = 6.0       # upturned-tip rise
@@ -52,6 +51,13 @@ HOOKS_X = (18.0, 38.0)  # shank (back) X of each in-line hook along the bottom a
 HOOK_DROP = 20.0   # straight drop from the bottom arm
 HOOK_REACH = 14.0  # flat peg length (forward, -X)
 HOOK_TIP = 8.0     # upturned tip after the flat bottom (retention)
+BOT_MARGIN = 6.0   # bottom arm extends this far past the rearmost hook shank
+
+
+def _bot_len() -> float:
+    """Bottom arm length: always reaches past the rearmost hook so every hook
+    is attached to it."""
+    return max(HOOKS_X) + BOT_MARGIN
 
 
 def _main_strap_line() -> None:
@@ -61,7 +67,7 @@ def _main_strap_line() -> None:
     Line((ARM_LEN, z_top), (ARM_LEN + TIP_DX, z_top + TIP_UP))  # upturned tip
     Line((FRONT_X, z_top), (ARM_LEN, z_top))                    # top arm
     Line((FRONT_X, z_top), (FRONT_X, z_bot))                    # square front face
-    Line((FRONT_X, z_bot), (BOT_LEN, z_bot))                    # bottom arm
+    Line((FRONT_X, z_bot), (_bot_len(), z_bot))                 # bottom arm
 
 
 def _hooks_line() -> None:
@@ -89,7 +95,15 @@ def make_rail() -> Shape:
                 _hooks_line()
             trace(line_width=MAT)
         extrude(amount=HOOK_W, dir=(0, 1, 0))
-    return part.part
+
+    result = part.part
+    n_solids = len(result.solids())
+    if n_solids != 1:
+        raise ValueError(
+            f"shelfhook is not a single connected solid ({n_solids} lumps) - "
+            "a hook is probably floating off the bottom arm"
+        )
+    return result
 
 
 # Inspection slices for `--views`: the strap profile (0deg) and a width section
@@ -108,6 +122,7 @@ if __name__ == "__main__":
     part = make_rail()
     bb = part.bounding_box()
     print(
-        f"valid={part.is_valid} vol={part.volume/1000:.1f}cm^3 "
+        f"valid={part.is_valid} solids={len(part.solids())} "
+        f"vol={part.volume/1000:.1f}cm^3 "
         f"size={bb.size.X:.0f}x{bb.size.Y:.0f}x{bb.size.Z:.0f}mm"
     )

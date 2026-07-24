@@ -292,6 +292,15 @@ print('is_valid', b.is_valid())     # sanity-check the B-rep
 GUI viewer here; verify via `.volume`, `.bounding_box()`, `.is_valid()`, and by
 opening the exported STL in a slicer.
 
+**Check connectivity — `is_valid` does NOT catch a disconnected part.** A part
+meant to be one piece must be a single solid: `len(shape.solids()) == 1`. A
+feature that fails to overlap the body (e.g. a hook whose shank lands past the
+end of the arm it should join) becomes a separate floating lump — each lump is
+individually "valid", so `is_valid` stays `True` and a cross-section can still
+show the feature in profile. Assert the solid count for single-piece models
+(see `projects/shelfhook/build.py`), and when in doubt render a slice at a
+height/section that passes through the *join* to confirm material is shared.
+
 ### Mandatory: verify every model by looking at slices
 
 Numbers (`.volume`, `.is_valid()`) do **not** catch geometry mistakes like
