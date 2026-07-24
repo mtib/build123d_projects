@@ -7,3 +7,5 @@ build/
 dist/
 # generated CAD outputs
 exports/
+dist/
+*.stl

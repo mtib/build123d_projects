@@ -1,0 +1,48 @@
+name: Build STLs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Needed so the workflow can create/update a release.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # cadquery-ocp (OpenCascade) needs a couple of system libs at import time.
+      - name: Install system libs
+        run: sudo apt-get update && sudo apt-get install -y libgl1 libx11-6
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Build all projects
+        run: python build_all.py
+
+      - name: Collect STLs
+        run: |
+          mkdir -p dist
+          # Files are already named <project>_<name>.stl inside each exports/.
+          find projects -path '*/exports/*.stl' -exec cp {} dist/ \;
+          ls -l dist
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: STL build ${{ github.run_number }}
+          body: >-
+            Auto-generated STL files from commit ${{ github.sha }}.
+          files: dist/*.stl

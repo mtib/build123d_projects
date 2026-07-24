@@ -43,10 +43,14 @@ python build_all.py
 ```
 build123d/
 ├── .venv/                  # virtualenv (gitignored)
-├── requirements.txt        # pinned deps (build123d==0.11.1)
+├── requirements.txt        # pinned runtime deps (build123d==0.11.1)
+├── requirements-dev.txt    # + matplotlib (for viz.py slice rendering)
 ├── build_all.py            # entrypoint: build one / all projects → STL
 ├── pipeline.py             # shared export helper (export_parts)
+├── viz.py                  # render slice/section PNGs to verify a model
+├── README.md               # public-facing overview
 ├── CLAUDE.md               # this file
+├── .github/workflows/      # CI: build all + publish STL release on push to main
 └── projects/
     └── <name>/
         ├── build.py        # defines build() -> dict[str, Shape]
@@ -63,7 +67,9 @@ def build() -> dict[str, Shape]:
     """Return {output_file_stem: build123d shape}."""
 ```
 
-- The **keys** become STL filenames (`{stem}.stl`).
+- The **keys** are variant names; the exported file is `<project>_<key>.stl`
+  (e.g. project `flowerpot`, key `9cm` → `flowerpot_9cm.stl`). Don't repeat the
+  project name in the key — `build_all` adds the `<project>_` prefix.
 - The **values** are build123d shapes (`Part`, `Solid`, `Compound`, `Sketch`…).
 - Keep `build.py` importable with **no side effects at import time** — all work
   happens inside `build()`. The entrypoint loads the module and calls `build()`;
@@ -86,6 +92,10 @@ python build_all.py --list     # list discoverable projects
 
 A failure in one project is reported but does not stop the others; the process
 exits non-zero if any project failed (good for CI).
+
+Outputs are named `<project>_<name>.stl`. On every push to `main`, the CI
+workflow (`.github/workflows/build.yml`) runs `build_all.py` and publishes a
+GitHub release containing every generated STL.
 
 ### Adding a new project
 
@@ -253,11 +263,45 @@ print('is_valid', b.is_valid())     # sanity-check the B-rep
 GUI viewer here; verify via `.volume`, `.bounding_box()`, `.is_valid()`, and by
 opening the exported STL in a slicer.
 
-### Design principle: prefer easy-to-print models
+### Mandatory: verify every model by looking at slices
 
-**Default to designs that print with no support on a bog-standard FDM printer.**
-This is a standing preference for every model in this repo — bias toward
-printability even at some cost to form:
+Numbers (`.volume`, `.is_valid()`) do **not** catch geometry mistakes like
+features overlapping, holes in the wrong place, or cuts undercutting a wall.
+**You must actually look at rendered slices of the model and confirm it matches
+intent** — the flower pot shipped with bosses overlapping the drain holes and
+side vents cutting into the floor, both invisible in the numbers but obvious in
+a slice.
+
+`viz.py` renders section/slice PNGs you can open and inspect:
+
+```python
+from viz import render_slices
+render_slices(part, "/tmp/check/pot",
+              angles=[0, 30, 45],   # vertical sections rotated about Z
+              z_slices=[2, 8])      # horizontal slices at those heights
+# writes *_sec<angle>.png, *_z<height>.png, and *_top.png (plan projection)
+```
+
+Requires `requirements-dev.txt` (matplotlib). Pick section angles/heights that
+cut **through** the features you care about (holes, bosses, vents), and use the
+`*_top.png` plan projection to spot plan-view collisions.
+
+**Run this as a loop — do not stop at the first render:**
+
+1. Build the part and render slices through its notable features.
+2. **Open every PNG and look.** Check walls, floor, holes, and internal features
+   line up, don't collide, and don't undercut the base.
+3. If anything looks wrong, fix `build.py` and go back to step 1.
+4. Only when the slices look correct do you export the final STL / call it done.
+
+Also re-check the print-orientation overhangs while you're looking (see below).
+
+### Design principle: prefer printable solutions with minimal support
+
+**Default to designs that print with the least support possible on a
+bog-standard FDM printer — ideally none.** This is a standing preference for
+every model in this repo: always prefer the printable solution, and when support
+is unavoidable, minimise it. Bias toward printability even at some cost to form:
 
 - **Flat base on the bed.** Give the model a flat bottom so it adheres well and
   needs no raft/support. Avoid raised feet that enclose a flat ceiling

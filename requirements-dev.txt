@@ -1,0 +1,3 @@
+# Tooling for local development / verification (not needed by CI build).
+-r requirements.txt
+matplotlib==3.11.1   # used by viz.py to render slice/section PNGs

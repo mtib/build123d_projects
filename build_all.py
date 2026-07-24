@@ -61,7 +61,8 @@ def build_project(name: str) -> list[Path]:
         raise AttributeError(f"projects/{name}/build.py must define build()")
     parts = module.build()
     out_dir = PROJECTS_DIR / name / "exports"
-    return export_parts(parts, out_dir)
+    # Prefix with the project name so files are <project>_<name>.stl.
+    return export_parts(parts, out_dir, prefix=f"{name}_")
 
 
 def main(argv: list[str] | None = None) -> int:

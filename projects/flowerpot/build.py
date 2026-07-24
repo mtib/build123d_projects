@@ -3,12 +3,16 @@
 A printed OUTER pot that a standard plastic nursery pot of 9/10/11 cm top
 diameter drops into. The nursery pot rests on internal bosses that keep its
 base off the floor, leaving a drainage plenum. Water leaves through a ring of
-holes in the floor and through arched notches at the base.
+holes in the floor and through round side vents just above the floor.
 
-Print orientation: open side UP, flat base on the bed. Everything is
-support-free — the base sits flush, walls taper gently outward, and the base
-notches are arched (round cutters) so their tops self-support. See the
-easy-to-print design principle in the repo CLAUDE.md.
+Print orientation: open side UP, flat base on the bed. Support-free by design
+(see the easy-to-print principle in the repo CLAUDE.md):
+
+- the base is a flush solid ring -> sticks to the bed, no raft/support;
+- walls taper gently outward (~9deg), which is self-supporting;
+- the side vents are round holes sitting ABOVE the floor slab, so their tops
+  self-support as arches and they never undercut the base;
+- internal bosses are interleaved between the drain holes so nothing overlaps.
 """
 
 from __future__ import annotations
@@ -37,17 +41,19 @@ COVER = 0.90     # fraction of nursery-pot height the outer wall covers
 
 DRAIN_R = 3.5    # radius of the floor drain holes
 DRAIN_RING_N = 6 # number of holes in the ring (plus one in the centre)
-NOTCH_R = 4.5    # radius of the arched base notches
-NOTCH_N = 4      # number of base notches ("feet" are the gaps between them)
-BOSS_R = 5.0     # radius of the nursery-pot support bosses
-BOSS_N = 4       # number of support bosses
+
+VENT_R = 4.5     # radius of the round side vents
+VENT_N = 4       # number of side vents
+
+BOSS_R = 4.0     # radius of the nursery-pot support bosses
+BOSS_N = 3       # number of support bosses (interleaved between drain holes)
 RIM_FILLET = 1.2 # top-rim rounding
 
 # Standard EU tapered nursery ("grow") pots: top Ø, base Ø, height (mm).
 NURSERY_POTS = {
-    "flowerpot_9cm": (90.0, 64.0, 82.0),
-    "flowerpot_10cm": (100.0, 72.0, 92.0),
-    "flowerpot_11cm": (110.0, 80.0, 100.0),
+    "9cm": (90.0, 64.0, 82.0),
+    "10cm": (100.0, 72.0, 92.0),
+    "11cm": (110.0, 80.0, 100.0),
 }
 
 
@@ -91,26 +97,28 @@ def make_pot(np_top_d: float, np_base_d: float, np_h: float) -> Part:
     for i in range(DRAIN_RING_N):
         pot -= Rot(0, 0, i * 360 / DRAIN_RING_N) * floor_hole(ring_r, 0)
 
-    # Base notches: horizontal round cutters through the base wall, open to the
-    # bed, so water always drains sideways even on a flat surface. The wall
-    # sections left between them read as feet.
-    for i in range(NOTCH_N):
-        ang = 360 / NOTCH_N * i + 45
+    # Side vents: round holes through the wall sitting just ABOVE the floor
+    # (bottom tangent to the floor top) so they drain the plenum sideways
+    # without undercutting the flush base. Round => self-supporting top.
+    vent_z = FLOOR + VENT_R
+    for i in range(VENT_N):
+        ang = 360 / VENT_N * i + 45
         cutter = (
             Rot(0, 0, ang)
-            * Pos(out_bot_r, 0, NOTCH_R)
+            * Pos(out_bot_r, 0, vent_z)
             * Rot(0, 90, 0)
-            * Cylinder(radius=NOTCH_R, height=WALL * 4)
+            * Cylinder(radius=VENT_R, height=WALL * 4)
         )
         pot -= cutter
 
     # Support bosses on the floor to seat the nursery pot above the plenum.
-    boss_ring = np_base_d / 2 * 0.5
+    # Interleaved halfway between the drain holes so they never overlap them.
+    boss_offset = (360 / DRAIN_RING_N) / 2
     for i in range(BOSS_N):
-        ang = 360 / BOSS_N * i + 45
+        ang = boss_offset + i * 360 / BOSS_N
         boss = (
             Rot(0, 0, ang)
-            * Pos(boss_ring, 0, FLOOR)
+            * Pos(ring_r, 0, FLOOR)
             * Cylinder(
                 radius=BOSS_R,
                 height=BOSS_H,
@@ -127,7 +135,7 @@ def make_pot(np_top_d: float, np_base_d: float, np_h: float) -> Part:
 
 
 def build() -> dict[str, Shape]:
-    """Return the three sized draining flower pots keyed by output stem."""
+    """Return the three sized draining flower pots keyed by variant name."""
     return {name: make_pot(*dims) for name, dims in NURSERY_POTS.items()}
 
 
