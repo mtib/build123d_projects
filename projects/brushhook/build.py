@@ -1,12 +1,17 @@
 """Under-cabinet brush hook, glued on with 30 mm nano tape.
 
 A flat plate nano-tapes to the underside of a kitchen cabinet; a narrow J-hook
-hangs from the plate's front edge and points out over the sink. A brush's ~10 mm
-hanging hole slips over the upturned tip and rests on the peg; the tip stops it
-sliding off.
+hangs beneath it. A brush's ~10 mm hanging hole slips over the upturned tip and
+rests on the peg; the tip and the shank capture it on both ends.
+
+The hook is tucked **under the plate footprint** on purpose: the shank drops at
+the back edge and the peg reaches forward under the plate, so a hanging brush's
+weight line falls inside the tape patch. That keeps the tape mostly in shear
+instead of prying one edge off (peel is double-sided tape's weakest mode).
 
 Coordinates are the in-use pose: +Z is up (toward the cabinet), the glue face is
-the top (Z = 0), the hook hangs below in -Z and the peg reaches out in +X.
+the top (Z = 0), the plate spans +X from the back edge (X = 0, wall side) to the
+front (sink side), and the hook hangs below in -Z within that span.
 
 Print orientation (support-free): lay it on its side — the flat hook face
 (the Y = 0 face) on the bed — so the 30 mm plate width becomes the build height.
@@ -25,11 +30,11 @@ PLATE_L = 40.0    # plate length (front-to-back); tape cut to ~this
 PLATE_T = 4.0     # plate thickness
 
 HOOK_T = 7.0      # hook bar thickness (Y); passes a ~10 mm brush hole
-SHANK_X0 = 33.0   # shank back edge (shank spans SHANK_X0..PLATE_L at the front)
+SHANK_W = 7.0     # shank width along X, dropped at the back edge (X 0..SHANK_W)
 
 PEG_DROP = 28.0   # peg underside below the glue face
 PEG_H = 6.0       # peg height (vertical thickness of the bar)
-PEG_REACH = 30.0  # how far the peg reaches out past the plate front
+PEG_FRONT = 34.0  # how far forward the peg reaches (stays < PLATE_L, under plate)
 TIP_W = 6.0       # upturned-tip width (along X)
 TIP_RISE = 7.0    # how far the tip rises above the peg top (retention)
 
@@ -43,23 +48,19 @@ def make_hook() -> Part:
     peg_bottom = -PEG_DROP
     peg_top = peg_bottom + PEG_H
     tip_top = peg_top + TIP_RISE
-    peg_end = PLATE_L + PEG_REACH
 
     # Mounting plate: glue face on top at Z = 0.
     plate = Pos(0, 0, -PLATE_T) * Box(PLATE_L, TAPE_W, PLATE_T, align=_MIN)
 
-    # Shank drops from the plate at the front edge down to the peg.
-    shank = Pos(SHANK_X0, 0, peg_bottom) * Box(
-        PLATE_L - SHANK_X0, HOOK_T, -peg_bottom, align=_MIN
-    )
+    # Shank drops from the plate at the BACK edge down to the peg.
+    shank = Pos(0, 0, peg_bottom) * Box(SHANK_W, HOOK_T, -peg_bottom, align=_MIN)
 
-    # Peg reaches outward (overlaps the shank in X for a solid joint).
-    peg = Pos(SHANK_X0, 0, peg_bottom) * Box(
-        peg_end - SHANK_X0, HOOK_T, PEG_H, align=_MIN
-    )
+    # Peg reaches FORWARD under the plate (overlaps the shank for a solid joint).
+    peg = Pos(0, 0, peg_bottom) * Box(PEG_FRONT, HOOK_T, PEG_H, align=_MIN)
 
-    # Upturned tip at the far end retains the brush.
-    tip = Pos(peg_end - TIP_W, 0, peg_bottom) * Box(
+    # Upturned tip near the front retains the brush; it and the shank capture the
+    # brush between them, and the whole hook stays within the plate footprint.
+    tip = Pos(PEG_FRONT - TIP_W, 0, peg_bottom) * Box(
         TIP_W, HOOK_T, tip_top - peg_bottom, align=_MIN
     )
 
